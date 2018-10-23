@@ -80,7 +80,7 @@
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:fontFamily="@font/anton"
-    android:textSize="6pt"
+    android:textSize="10pt"
     app:layout_constraintEnd_toEndOf="@id/guideline_3"/>
 
   <TextView
@@ -96,7 +96,7 @@
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:fontFamily="@font/anton"
-    android:textColor="@android:color/holo_red_dark"
+    android:textColor="@android:color/holo_blue_bright"
     android:textSize="12pt"
     app:layout_constraintEnd_toEndOf="@id/guideline_5"/>
 
