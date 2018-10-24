@@ -3,13 +3,12 @@ package deepdive.cnm.edu.megamillions.controller;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
-import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.Toast;
 import deepdive.cnm.edu.megamillions.R;
 import deepdive.cnm.edu.megamillions.model.db.PickDatabase;
 import deepdive.cnm.edu.megamillions.model.entity.Pick;
@@ -20,7 +19,6 @@ import edu.cnm.deepdive.Generator;
 import edu.cnm.deepdive.MMGenerator;
 import java.security.SecureRandom;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
@@ -30,7 +28,7 @@ public class MainActivity extends AppCompatActivity {
   private Generator generator;
   private RecyclerView pickListView;
   private PickAdapter adapter;
-  private List<int[]> picks;
+  private List<PickAndNumbers> picks;
   private Random rng;
   private PickDatabase database;
 
@@ -64,8 +62,7 @@ public class MainActivity extends AppCompatActivity {
     boolean handled = true;
     switch (item.getItemId()) {
       case R.id.action_clear:
-        picks.clear();
-        adapter.notifyDataSetChanged();
+        new DeleteTask(-1).execute();
         break;
       default:
         handled = super.onOptionsItemSelected(item);
@@ -87,20 +84,17 @@ public class MainActivity extends AppCompatActivity {
     super.onStop();
   }
 
+  public void deletePick(int position, Pick pick) {
+    new DeleteTask(position).execute(pick);
+  }
+
   private class QueryTask extends AsyncTask<Void, Void, List<PickAndNumbers>> {
 
     @Override
     protected void onPostExecute(List<PickAndNumbers> pickAndNumbers) {
       // FIXME Assume less with data model.
       picks.clear();
-      for (PickAndNumbers pick : pickAndNumbers) {
-        int[] numbers = new int[pick.getNumbers().size()];
-        int index = 0;
-        for (PickNumber number :pick.getNumbers()) {
-          numbers[index++] = number.getValue();
-        }
-        picks.add(numbers);
-      }
+      picks.addAll(pickAndNumbers);
       adapter.notifyDataSetChanged();
     }
 
@@ -109,16 +103,16 @@ public class MainActivity extends AppCompatActivity {
       return database.getPickDao().selectWithNumbers();
     }
   }
-  private class AddTask extends AsyncTask<int[], Void, int[]> {
+  private class AddTask extends AsyncTask<int[], Void, PickAndNumbers> {
 
     @Override
-    protected void onPostExecute(int[] numbers) {
-      picks.add(numbers);
+    protected void onPostExecute(PickAndNumbers pick) {
+      picks.add(pick);
       adapter.notifyItemInserted(picks.size() - 1);
     }
 
     @Override
-    protected int[] doInBackground(int[]... ints) {
+    protected PickAndNumbers doInBackground(int[]... ints) {
       int[] numbers = ints[0];
       Pick pick = new Pick();
       long pickId = database.getPickDao().insert(pick);
@@ -131,7 +125,42 @@ public class MainActivity extends AppCompatActivity {
         pickNumbers.add(pickNumber);
       }
       database.getPickNumberDao().insert(pickNumbers);
-      return numbers;
+      PickAndNumbers pickAndNumbers = new PickAndNumbers();
+      pickAndNumbers.setPick(pick);
+      pickAndNumbers.setNumbers(pickNumbers);
+      return pickAndNumbers;
+    }
+  }
+
+  private class DeleteTask extends AsyncTask<Pick, Void, Integer> {
+
+    private int position;
+
+    public DeleteTask(int position) {
+      this.position = position;
+    }
+
+    @Override
+    protected void onPostExecute(Integer rowsAffected) {
+      if (position <0) {
+        picks.clear();
+        adapter.notifyDataSetChanged();
+        Toast.makeText(MainActivity.this,
+            getString(R.string.clear_all_format, rowsAffected), Toast.LENGTH_LONG).show();
+      } else {
+        picks.remove(position);
+        adapter.notifyItemRemoved(position);
+        adapter.notifyItemRangeChanged(position, picks.size() - position);
+      }
+    }
+
+    @Override
+    protected Integer doInBackground(Pick... picks) {
+      if (picks.length == 0) {
+        return database.getPickDao().nuke();
+      } else {
+        return database.getPickDao().delete(picks[0]);
+      }
     }
   }
 }
